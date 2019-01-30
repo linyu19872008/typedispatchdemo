@@ -21,7 +21,7 @@ public class SecondProtobufCodec extends MessageToMessageCodec<Frame, MessageLit
     protected void encode(ChannelHandlerContext ctx, MessageLite msg, List<Object> out) throws Exception {
 
         out.add(Frame.newBuilder()
-                .setMessageType(msg.getClass().getSimpleName())
+                .setMessageName(msg.getClass().getSimpleName())
                 .setPayload(msg.toByteString())
                 .build());
 

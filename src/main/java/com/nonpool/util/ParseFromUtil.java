@@ -2,8 +2,8 @@ package com.nonpool.util;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.MessageLite;
-import com.nonpool.proto.Frame;
 
+import com.nonpool.proto.Frame;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -43,7 +43,7 @@ public abstract class ParseFromUtil {
      * @return
      */
     public static MessageLite parse(Frame msg) throws InvocationTargetException, IllegalAccessException {
-        String type = msg.getMessageType();
+        String type = msg.getMessageName();
         ByteString body = msg.getPayload();
 
         Method method = methodCache.get(type);

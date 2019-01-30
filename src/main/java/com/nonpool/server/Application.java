@@ -38,7 +38,7 @@ public class Application {
 
     public static void main(String[] args) throws Exception {
 
-        int port = Integer.parseInt(args[0]);
+        int port =8888;
         Application application = new Application(port);
         EventLoopGroup bossGroup = new NioEventLoopGroup();
         EventLoopGroup workerGroup = new NioEventLoopGroup();
