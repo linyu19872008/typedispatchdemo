@@ -30,86 +30,87 @@ import java.util.concurrent.ExecutorService;
  * @since 2018/1/29
  */
 public class Application {
-    private int port;
 
-    public Application(int port) {
-        this.port = port;
-    }
+  private int port;
 
-    public static void main(String[] args) throws Exception {
+  public Application(int port) {
+    this.port = port;
+  }
 
-        int port =8888;
-        Application application = new Application(port);
-        EventLoopGroup bossGroup = new NioEventLoopGroup();
-        EventLoopGroup workerGroup = new NioEventLoopGroup();
+  public static void main(String[] args) throws Exception {
 
-        ExecutorService executorService = application.startHandler();
-        application.shutdownHook(executorService,bossGroup,workerGroup);
-        application.run(bossGroup,workerGroup);
-    }
+    int port = 8888;
+    Application application = new Application(port);
+    EventLoopGroup bossGroup = new NioEventLoopGroup();
+    EventLoopGroup workerGroup = new NioEventLoopGroup();
 
-    //优雅停机
-    private void shutdownHook(ExecutorService executorService, EventLoopGroup bossGroup,
-                              EventLoopGroup workerGroup) {
-        //正常停止时
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            //先停止netty的线程
-            workerGroup.shutdownGracefully();
-            bossGroup.shutdownGracefully();
+    ExecutorService executorService = application.startHandler();
+    application.shutdownHook(executorService, bossGroup, workerGroup);
+    application.run(bossGroup, workerGroup);
+  }
 
-            //等待队列中的数据被处理完再停机
-            MessageBuffer instance = InnerQueueBuffer.getInstance();
-            while (instance.size() != 0) {
-                System.out.println("wait message insert :" + instance.size());
-                try {
-                    Thread.sleep(3000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-            if (!executorService.isShutdown()) {
-                executorService.shutdownNow();
-            }
-        }));
-    }
+  //优雅停机
+  private void shutdownHook(ExecutorService executorService, EventLoopGroup bossGroup,
+      EventLoopGroup workerGroup) {
+    //正常停止时
+    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+      //先停止netty的线程
+      workerGroup.shutdownGracefully();
+      bossGroup.shutdownGracefully();
 
-    //启动数据处理线程池
-    private ExecutorService startHandler() {
-        HandlerPool handlerPool = new HandlerPool();
-        handlerPool.doHandler();
-
-        return handlerPool.getExecutorService();
-    }
-
-    //启动netty
-    private void run(EventLoopGroup bossGroup, EventLoopGroup workerGroup) throws Exception {
+      //等待队列中的数据被处理完再停机
+      MessageBuffer instance = InnerQueueBuffer.getInstance();
+      while (instance.size() != 0) {
+        System.out.println("wait message insert :" + instance.size());
         try {
-            ServerBootstrap b = new ServerBootstrap();
-            b.group(bossGroup, workerGroup)
-                    .channel(NioServerSocketChannel.class)
-                    .childHandler(new ChannelInitializer<SocketChannel>() {
-                        @Override
-                        public void initChannel(SocketChannel ch) throws Exception {
-                            ch.pipeline()
-                                    .addLast(new ProtobufVarint32FrameDecoder())
-                                    .addLast(new ProtobufDecoder(Frame.getDefaultInstance()))
-                                    .addLast(new ProtobufVarint32LengthFieldPrepender())
-                                    .addLast(new ProtobufEncoder())
-                                    .addLast(new SecondProtobufCodec())
-                                    .addLast(new DispatchHandler())
-                            ;
-                        }
-                    })
-                    .option(ChannelOption.SO_BACKLOG, 128)
-                    .childOption(ChannelOption.SO_KEEPALIVE, true);
-
-
-            ChannelFuture f = b.bind(port).sync();
-
-            f.channel().closeFuture().sync();
-        } finally {
-            workerGroup.shutdownGracefully();
-            bossGroup.shutdownGracefully();
+          Thread.sleep(3000);
+        } catch (InterruptedException e) {
+          e.printStackTrace();
         }
+      }
+      if (!executorService.isShutdown()) {
+        executorService.shutdownNow();
+      }
+    }));
+  }
+
+  //启动数据处理线程池
+  private ExecutorService startHandler() {
+    HandlerPool handlerPool = new HandlerPool();
+    handlerPool.doHandler();
+
+    return handlerPool.getExecutorService();
+  }
+
+  //启动netty
+  private void run(EventLoopGroup bossGroup, EventLoopGroup workerGroup) throws Exception {
+    try {
+      ServerBootstrap b = new ServerBootstrap();
+      b.group(bossGroup, workerGroup)
+          .channel(NioServerSocketChannel.class)
+          .childHandler(new ChannelInitializer<SocketChannel>() {
+            @Override
+            public void initChannel(SocketChannel ch) throws Exception {
+              ch.pipeline()
+                  .addLast(new ProtobufVarint32FrameDecoder())
+                  .addLast(new ProtobufDecoder(Frame.getDefaultInstance()))
+                  .addLast(new ProtobufVarint32LengthFieldPrepender())
+                  .addLast(new ProtobufEncoder())
+                  .addLast(new SecondProtobufCodec())
+                  .addLast(new DispatchHandler())
+              ;
+            }
+          })
+          .option(ChannelOption.SO_BACKLOG, 128)
+          .childOption(ChannelOption.SO_KEEPALIVE, true);
+
+      ChannelFuture f = b.bind(port).syncUninterruptibly();
+      System.out.println("Netty Server Start,Listen port:" + port);
+      f.channel().closeFuture().sync();
+      System.out.println("Netty Server stopped");
+    } finally {
+      workerGroup.shutdownGracefully();
+      bossGroup.shutdownGracefully();
     }
+  }
 }
